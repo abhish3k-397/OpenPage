@@ -1,6 +1,6 @@
-import 'package:flutter_inappwebview/flutter_inappwebview.dart';
-
 enum ReaderTheme { light, dark, sepia }
+
+typedef JavascriptEvaluator = Future<void> Function(String source);
 
 class CssInjector {
   static String getThemeCss(ReaderTheme theme) {
@@ -56,7 +56,7 @@ class CssInjector {
   }
 
   static Future<void> inject(
-    InAppWebViewController controller, {
+    JavascriptEvaluator evaluateJavascript, {
     required ReaderTheme theme,
     required double fontSize,
     required double lineHeight,
@@ -68,6 +68,6 @@ class CssInjector {
       lineHeight: lineHeight,
       horizontalMargin: horizontalMargin,
     );
-    await controller.evaluateJavascript(source: js);
+    await evaluateJavascript(js);
   }
 }

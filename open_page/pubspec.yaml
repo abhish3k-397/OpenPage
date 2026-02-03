@@ -46,6 +46,8 @@ dependencies:
   sqflite_common_ffi: ^2.4.0+2
   sqlite3_flutter_libs: ^0.5.41
   path: ^1.9.1
+  webview_cef: ^0.2.2
+  flutter_html: ^3.0.0
 
 dev_dependencies:
   flutter_test:

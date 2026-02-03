@@ -5,8 +5,19 @@
 #include "flutter_window.h"
 #include "utils.h"
 
+// Introduce the source code of this plugin into your own project
+#include "webview_cef/webview_cef_plugin_c_api.h"
+
 int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
                       _In_ wchar_t *command_line, _In_ int show_command) {
+  // Start cef daemon processes. MUST CALL FIRST.
+  // For CEF helper processes this will return a non-negative exit code
+  // and we should exit early without starting Flutter.
+  int exit_code = initCEFProcesses(instance);
+  if (exit_code >= 0) {
+    return exit_code;
+  }
+
   // Attach to console when present (e.g., 'flutter run') or create a
   // new console when running with a debugger.
   if (!::AttachConsole(ATTACH_PARENT_PROCESS) && ::IsDebuggerPresent()) {
@@ -36,6 +47,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   while (::GetMessage(&msg, nullptr, 0, 0)) {
     ::TranslateMessage(&msg);
     ::DispatchMessage(&msg);
+    // Enable cef keyboard input and allow posting to Flutter engine thread.
+    handleWndProcForCEF(msg.hwnd, msg.message, msg.wParam, msg.lParam);
   }
 
   ::CoUninitialize();

@@ -10,6 +10,7 @@ import flutter_inappwebview_macos
 import shared_preferences_foundation
 import sqflite_darwin
 import sqlite3_flutter_libs
+import webview_cef
 
 func RegisterGeneratedPlugins(registry: FlutterPluginRegistry) {
   FilePickerPlugin.register(with: registry.registrar(forPlugin: "FilePickerPlugin"))
@@ -17,4 +18,5 @@ func RegisterGeneratedPlugins(registry: FlutterPluginRegistry) {
   SharedPreferencesPlugin.register(with: registry.registrar(forPlugin: "SharedPreferencesPlugin"))
   SqflitePlugin.register(with: registry.registrar(forPlugin: "SqflitePlugin"))
   Sqlite3FlutterLibsPlugin.register(with: registry.registrar(forPlugin: "Sqlite3FlutterLibsPlugin"))
+  WebviewCefPlugin.register(with: registry.registrar(forPlugin: "WebviewCefPlugin"))
 }

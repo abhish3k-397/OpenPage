@@ -19,6 +19,9 @@ class EpubParser {
     final bytes = await epubFile.readAsBytes();
     final book = await epub.EpubReader.readBook(bytes);
 
+    final contentDir = book.Schema?.ContentDirectoryPath ?? '';
+    final baseDir = p.join(extractedPath, contentDir);
+
     final metadata = BookMetadata(
       title: book.Title ?? 'Unknown Title',
       author: book.Author,
@@ -50,7 +53,7 @@ class EpubParser {
               (item) => item.MediaType?.startsWith('image/') ?? false,
             ),
           );
-          coverPath = p.join(extractedPath, book.Schema?.ContentDirectoryPath ?? '', coverItem.Href);
+          coverPath = p.join(baseDir, coverItem.Href);
         } catch (_) {
           // No cover found
         }
@@ -61,9 +64,9 @@ class EpubParser {
       metadata: metadata,
       manifest: manifest,
       spine: spine,
-      baseDirectory: extractedPath,
+      baseDirectory: baseDir,
       coverPath: coverPath,
-      opfPath: p.join(extractedPath, book.Schema?.ContentDirectoryPath ?? '', 'content.opf'),
+      opfPath: p.join(baseDir, 'content.opf'),
     );
   }
 }

@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../core/reader/webview_bridge.dart';
 import '../../core/reader/css_injector.dart';
 import '../../core/reader/reader_controller.dart';
+import '../../core/reader/reader_webview.dart';
 import 'reader_provider.dart';
-import 'dart:developer' as developer;
 
 class ReaderScreen extends ConsumerStatefulWidget {
   final String bookId;
@@ -22,13 +20,13 @@ class ReaderScreen extends ConsumerStatefulWidget {
 }
 
 class _ReaderScreenState extends ConsumerState<ReaderScreen> {
-  InAppWebViewController? _webViewController;
+  ReaderWebController? _webViewController;
   double _scrollProgress = 0.0;
 
   void _applyStyles(ReaderSettings settings) {
     if (_webViewController != null) {
       CssInjector.inject(
-        _webViewController!,
+        (source) => _webViewController!.evaluateJavascript(source),
         theme: settings.theme,
         fontSize: settings.fontSize,
         lineHeight: settings.lineHeight,
@@ -163,26 +161,23 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
           Expanded(
             child: Stack(
               children: [
-                InAppWebView(
+                ReaderWebView(
                   key: ValueKey(currentPath), // Force rebuild on chapter change
-                  initialUrlRequest: URLRequest(url: WebUri('file://$currentPath')),
-                  initialSettings: WebviewBridge.defaultSettings,
-                  onWebViewCreated: (controller) {
+                  filePath: currentPath,
+                  onScrollProgress: (progress) {
+                    setState(() => _scrollProgress = progress);
+                    ReaderController.savePosition(
+                      bookId: widget.bookId,
+                      chapterPath: currentPath,
+                      progress: progress,
+                    );
+                  },
+                  onControllerReady: (controller) {
                     _webViewController = controller;
-                    _setupJavaScriptHandlers(controller, currentPath);
                   },
-                  onLoadStop: (controller, url) async {
+                  onPageReady: () async {
                     _applyStyles(state.settings);
-                    await _restoreScrollPosition(controller, currentPath);
-                    await _injectScrollMonitor(controller);
-                  },
-                  onReceivedError: (controller, request, error) {
-                    developer.log('WebView Error: ${error.description}', name: 'ReaderScreen');
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Error loading chapter: ${error.description}')),
-                      );
-                    }
+                    await _restoreScrollPosition(currentPath);
                   },
                 ),
               ],
@@ -228,34 +223,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     );
   }
 
-  void _setupJavaScriptHandlers(InAppWebViewController controller, String path) {
-    controller.addJavaScriptHandler(
-      handlerName: 'onScroll',
-      callback: (args) {
-        final double progress = args[0].toDouble();
-        setState(() => _scrollProgress = progress);
-        ReaderController.savePosition(
-          bookId: widget.bookId,
-          chapterPath: path,
-          progress: progress,
-        );
-      },
-    );
-  }
-
-  Future<void> _injectScrollMonitor(InAppWebViewController controller) async {
-    const js = '''
-      window.onscroll = function() {
-        var scrollPos = window.scrollY;
-        var totalHeight = document.documentElement.scrollHeight - window.innerHeight;
-        var progress = totalHeight > 0 ? scrollPos / totalHeight : 0;
-        window.flutter_inappwebview.callHandler('onScroll', progress);
-      };
-    ''';
-    await controller.evaluateJavascript(source: js);
-  }
-
-  Future<void> _restoreScrollPosition(InAppWebViewController controller, String path) async {
+  Future<void> _restoreScrollPosition(String path) async {
     final double progress = await ReaderController.getPosition(
       bookId: widget.bookId,
       chapterPath: path,
@@ -267,7 +235,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
           window.scrollTo(0, totalHeight * $progress);
         }, 150);
       ''';
-      await controller.evaluateJavascript(source: js);
+      await _webViewController?.evaluateJavascript(js);
     }
   }
 }
