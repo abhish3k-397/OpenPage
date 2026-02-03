@@ -48,6 +48,43 @@ class _DependencyCheckScreenState extends ConsumerState<DependencyCheckScreen> {
     }
   }
 
+  Future<void> _openMockReader() async {
+    final docDir = await getApplicationDocumentsDirectory();
+    final mockBookDir = Directory('${docDir.path}/books/mock_book');
+    if (!await mockBookDir.exists()) {
+      await mockBookDir.create(recursive: true);
+    }
+
+    final cssFile = File('${mockBookDir.path}/style.css');
+    await cssFile.writeAsString('body { background-color: #f0f0f0; font-family: sans-serif; padding: 20px; } h1 { color: #512da8; } .box { border: 2px solid #512da8; padding: 10px; margin-top: 10px; }');
+
+    final htmlFile = File('${mockBookDir.path}/index.html');
+    await htmlFile.writeAsString('''
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <h1>Extracted Chapter</h1>
+    <p>This is a real chapter rendered from local storage.</p>
+    <div class="box">
+        <p>CSS styling is working if this box has a border.</p>
+    </div>
+    <p>Image below:</p>
+</body>
+</html>
+''');
+
+    if (mounted) {
+      Navigator.pushNamed(
+        context,
+        '/reader',
+        arguments: {'path': htmlFile.path},
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final status = ref.watch(statusProvider);
@@ -56,10 +93,20 @@ class _DependencyCheckScreenState extends ConsumerState<DependencyCheckScreen> {
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(20.0),
-          child: Text(
-            status,
-            textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 18),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                status,
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 18),
+              ),
+              const SizedBox(height: 30),
+              ElevatedButton(
+                onPressed: _openMockReader,
+                child: const Text('Open Mock Reader'),
+              ),
+            ],
           ),
         ),
       ),

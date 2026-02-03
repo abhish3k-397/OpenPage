@@ -12,6 +12,7 @@ class OpenPageApp extends StatelessWidget {
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       routes: AppRouter.routes,
+      onGenerateRoute: AppRouter.onGenerateRoute,
       initialRoute: '/check',
       debugShowCheckedModeBanner: false,
     );
