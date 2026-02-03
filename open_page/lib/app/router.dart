@@ -1,6 +1,8 @@
+import 'package:flutter/material.dart';
 import '../features/reader/reader_screen.dart';
 import '../features/library/library_screen.dart';
 import '../features/settings/settings_screen.dart';
+import '../features/settings/dependency_check_screen.dart';
 
 class AppRouter {
   static Map<String, WidgetBuilder> get routes {

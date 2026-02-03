@@ -9,13 +9,6 @@ class EpubParser {
   static Future<EpubBook> parse(String extractedPath) async {
     developer.log('Parsing EPUB at: $extractedPath', name: 'EpubParser');
 
-    // To use epubx effectively, we often need the full epub bytes,
-    // but the requirement is to parse the extracted structure.
-    // However, epubx is designed to parse from bytes.
-    // We can read the .epub file we copied during extraction if it exists,
-    // or we can manually parse the XMLs. 
-    // Given the "using epubx" requirement, let's find the .epub file in the directory.
-    
     final dir = Directory(extractedPath);
     final files = await dir.list().toList();
     final epubFile = files.whereType<File>().firstWhere(
@@ -46,21 +39,21 @@ class EpubParser {
       linear: item.IsLinear ?? true,
     )).toList() ?? [];
 
-    // Find cover image. epubx identifies it for us.
     String? coverPath;
     if (book.CoverImage != null) {
-      // Find which manifest item corresponds to the cover
-      // epubx doesn't directly give the relative path in the extracted dir easily 
-      // without some searching.
-      final coverItem = book.Schema?.Package?.Manifest?.Items?.firstWhere(
-        (item) => item.Id == 'cover' || item.Properties == 'cover-image',
-        orElse: () => book.Schema?.Package?.Manifest?.Items?.firstWhere(
-          (item) => item.MediaType?.startsWith('image/') ?? false,
-          orElse: () => null,
-        ),
-      );
-      if (coverItem != null) {
-        coverPath = p.join(extractedPath, book.Schema?.ContentDirectoryPath ?? '', coverItem.Href);
+      final items = book.Schema?.Package?.Manifest?.Items;
+      if (items != null) {
+        try {
+          final coverItem = items.firstWhere(
+            (item) => item.Id == 'cover' || item.Properties == 'cover-image',
+            orElse: () => items.firstWhere(
+              (item) => item.MediaType?.startsWith('image/') ?? false,
+            ),
+          );
+          coverPath = p.join(extractedPath, book.Schema?.ContentDirectoryPath ?? '', coverItem.Href);
+        } catch (_) {
+          // No cover found
+        }
       }
     }
 
@@ -70,7 +63,7 @@ class EpubParser {
       spine: spine,
       baseDirectory: extractedPath,
       coverPath: coverPath,
-      opfPath: p.join(extractedPath, book.Schema?.Package?.ContentDirectoryPath ?? '', 'content.opf'), // Approximate
+      opfPath: p.join(extractedPath, book.Schema?.ContentDirectoryPath ?? '', 'content.opf'),
     );
   }
 }

@@ -5,6 +5,7 @@ import 'package:uuid/uuid.dart';
 import '../../core/epub/epub_loader.dart';
 import '../../core/epub/epub_parser.dart';
 import '../../core/storage/book_dao.dart';
+import 'dart:developer' as developer;
 
 class LibraryNotifier extends AsyncNotifier<List<BookRecord>> {
   final _bookDao = BookDao();

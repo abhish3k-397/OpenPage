@@ -62,19 +62,19 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                   const SizedBox(height: 20),
                   _sliderSetting('Font Size', settings.fontSize, 12, 32, (val) {
                     final newSettings = settings.copyWith(fontSize: val);
-                    ref.read(readerProvider(widget.bookId).notifier).updateSettings(newSettings);
+                    ref.read(readerProvider.notifier).updateSettings(newSettings);
                     _applyStyles(newSettings);
                     setModalState(() {});
                   }),
                   _sliderSetting('Line Height', settings.lineHeight, 1.0, 2.5, (val) {
                     final newSettings = settings.copyWith(lineHeight: val);
-                    ref.read(readerProvider(widget.bookId).notifier).updateSettings(newSettings);
+                    ref.read(readerProvider.notifier).updateSettings(newSettings);
                     _applyStyles(newSettings);
                     setModalState(() {});
                   }),
                   _sliderSetting('Margins', settings.margin, 0, 50, (val) {
                     final newSettings = settings.copyWith(margin: val);
-                    ref.read(readerProvider(widget.bookId).notifier).updateSettings(newSettings);
+                    ref.read(readerProvider.notifier).updateSettings(newSettings);
                     _applyStyles(newSettings);
                     setModalState(() {});
                   }),
@@ -101,7 +101,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
       onSelected: (selected) {
         if (selected) {
           final newSettings = current.copyWith(theme: theme);
-          ref.read(readerProvider(widget.bookId).notifier).updateSettings(newSettings);
+          ref.read(readerProvider.notifier).updateSettings(newSettings);
           _applyStyles(newSettings);
           setModalState(() {});
         }
@@ -128,7 +128,12 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final state = ref.watch(readerProvider(widget.bookId));
+    final state = ref.watch(readerProvider);
+
+    // Manual initialization since we moved away from .family to avoid build issues
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(readerProvider.notifier).initialize(widget.bookId);
+    });
 
     if (state.isLoading || state.spinePaths.isEmpty) {
       return const Scaffold(
@@ -200,7 +205,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
             icon: const Icon(Icons.arrow_back),
             onPressed: state.currentChapterIndex > 0
                 ? () {
-                    ref.read(readerProvider(widget.bookId).notifier).previousChapter();
+                    ref.read(readerProvider.notifier).previousChapter();
                     setState(() => _scrollProgress = 0.0);
                   }
                 : null,
@@ -213,7 +218,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
             icon: const Icon(Icons.arrow_forward),
             onPressed: state.currentChapterIndex < state.spinePaths.length - 1
                 ? () {
-                    ref.read(readerProvider(widget.bookId).notifier).nextChapter();
+                    ref.read(readerProvider.notifier).nextChapter();
                     setState(() => _scrollProgress = 0.0);
                   }
                 : null,

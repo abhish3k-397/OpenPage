@@ -50,13 +50,14 @@ class ReaderState {
   });
 
   ReaderState copyWith({
+    String? bookId,
     List<String>? spinePaths,
     int? currentChapterIndex,
     ReaderSettings? settings,
     bool? isLoading,
   }) {
     return ReaderState(
-      bookId: bookId,
+      bookId: bookId ?? this.bookId,
       spinePaths: spinePaths ?? this.spinePaths,
       currentChapterIndex: currentChapterIndex ?? this.currentChapterIndex,
       settings: settings ?? this.settings,
@@ -65,31 +66,28 @@ class ReaderState {
   }
 }
 
-class ReaderNotifier extends FamilyNotifier<ReaderState, String> {
+// Trying a non-family Notifier with manual initialization to bypass FamilyNotifier errors
+class ReaderNotifier extends Notifier<ReaderState> {
   final _bookDao = BookDao();
 
   @override
-  ReaderState build(String arg) {
-    // Initialization handled via an async internal method 
-    // to avoid complex build logic
-    _init(arg);
+  ReaderState build() {
     return ReaderState(
-      bookId: arg,
+      bookId: '',
       spinePaths: [],
       settings: ReaderSettings(),
     );
   }
 
+  void initialize(String bookId) {
+    if (state.bookId == bookId) return;
+    _init(bookId);
+  }
+
   Future<void> _init(String bookId) async {
+    state = state.copyWith(bookId: bookId, isLoading: true);
+    
     final prefs = await SharedPreferences.getInstance();
-    
-    // Load Book-Specific Settings or Fallback to Global Defaults
-    // To make it truly global but allow overrides, we can use different keys for books,
-    // but for now, let's just use the global keys if book-specific ones aren't set.
-    
-    // Check if book-specific settings exist first? 
-    // Let's simplify: Use the same keys as settingsProvider for now if we want global sync,
-    // or distinct ones for book-specific. The requirement says "Settings applied globally".
     
     final themeIndex = prefs.getInt('reader_theme') ?? prefs.getInt('global_reader_theme') ?? 0;
     final fontSize = prefs.getDouble('reader_font_size') ?? prefs.getDouble('global_reader_font_size') ?? 18.0;
@@ -103,14 +101,15 @@ class ReaderNotifier extends FamilyNotifier<ReaderState, String> {
       margin: margin,
     );
 
-    // Load Book & Spine
     final bookRecord = await _bookDao.getBookById(bookId);
-    if (bookRecord == null) return;
+    if (bookRecord == null) {
+      state = state.copyWith(isLoading: false);
+      return;
+    }
 
     final epubBook = await EpubParser.parse(bookRecord.rootPath);
     final paths = SpineResolver.resolveAllPaths(epubBook);
 
-    // Find last chapter or start at 0
     int startIndex = 0;
     if (bookRecord.lastChapter != null) {
       final lastPath = bookRecord.lastChapter!;
@@ -141,11 +140,10 @@ class ReaderNotifier extends FamilyNotifier<ReaderState, String> {
     
     state = state.copyWith(currentChapterIndex: index, isLoading: true);
     
-    // Save progress to DB
     await _bookDao.updateReadProgress(
       state.bookId, 
       state.spinePaths[index], 
-      0.0 // Reset offset for new chapter or handle differently
+      0.0 
     );
 
     state = state.copyWith(isLoading: false);
@@ -155,6 +153,4 @@ class ReaderNotifier extends FamilyNotifier<ReaderState, String> {
   void previousChapter() => goToChapter(state.currentChapterIndex - 1);
 }
 
-final readerProvider = NotifierProviderFamily<ReaderNotifier, ReaderState, String>(() {
-  return ReaderNotifier();
-});
+final readerProvider = NotifierProvider<ReaderNotifier, ReaderState>(ReaderNotifier.new);

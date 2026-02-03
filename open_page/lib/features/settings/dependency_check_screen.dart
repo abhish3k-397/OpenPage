@@ -8,7 +8,14 @@ import '../../core/storage/book_dao.dart';
 import '../../core/storage/bookmark_dao.dart';
 import 'dart:io';
 
-final statusProvider = StateProvider<String>((ref) => 'Initializing...');
+class StatusNotifier extends Notifier<String> {
+  @override
+  String build() => 'Initializing...';
+  
+  void setStatus(String status) => state = status;
+}
+
+final statusProvider = NotifierProvider<StatusNotifier, String>(StatusNotifier.new);
 
 class DependencyCheckScreen extends ConsumerStatefulWidget {
   const DependencyCheckScreen({super.key});
@@ -40,50 +47,28 @@ class _DependencyCheckScreenState extends ConsumerState<DependencyCheckScreen> {
       const uuid = Uuid();
       final id = uuid.v4();
 
-      ref.read(statusProvider.notifier).state = 
-        'Success!\n'
-        'Riverpod: Active\n'
-        'Prefs: ${prefs.getString('test_key')}\n'
-        'SQLite: Records inserted\n'
-        'UUID: $id';
+      if (mounted) {
+        ref.read(statusProvider.notifier).setStatus(
+          'Success!\n'
+          'Riverpod: Active\n'
+          'Prefs: ${prefs.getString('test_key')}\n'
+          'SQLite: Records inserted\n'
+          'UUID: $id',
+        );
+      }
     } catch (e) {
-      ref.read(statusProvider.notifier).state = 'Error: $e';
+      if (mounted) {
+        ref.read(statusProvider.notifier).setStatus('Error: $e');
+      }
     }
   }
 
   Future<void> _openMockReader() async {
-    final docDir = await getApplicationDocumentsDirectory();
-    final mockBookDir = Directory('${docDir.path}/books/mock_book');
-    if (!await mockBookDir.exists()) {
-      await mockBookDir.create(recursive: true);
-    }
-
-    final cssFile = File('${mockBookDir.path}/style.css');
-    await cssFile.writeAsString('body { background-color: #f0f0f0; font-family: sans-serif; padding: 20px; } h1 { color: #512da8; } .box { border: 2px solid #512da8; padding: 10px; margin-top: 10px; }');
-
-    final htmlFile = File('${mockBookDir.path}/index.html');
-    await htmlFile.writeAsString('''
-<!DOCTYPE html>
-<html>
-<head>
-    <link rel="stylesheet" href="style.css">
-</head>
-<body>
-    <h1>Extracted Chapter</h1>
-    <p>This is a real chapter rendered from local storage.</p>
-    <div class="box">
-        <p>CSS styling is working if this box has a border.</p>
-    </div>
-    <p>Image below:</p>
-</body>
-</html>
-''');
-
     if (mounted) {
       Navigator.pushNamed(
         context,
         '/reader',
-        arguments: {'path': htmlFile.path},
+        arguments: {'bookId': 'mock-id'},
       );
     }
   }
@@ -116,14 +101,15 @@ class _DependencyCheckScreenState extends ConsumerState<DependencyCheckScreen> {
       final bookmarks = await bookmarkDao.getBookmarksForBook(bookId);
 
       if (mounted) {
-        ref.read(statusProvider.notifier).state = 
+        ref.read(statusProvider.notifier).setStatus(
           'Database Test Success!\n'
           'Books in DB: ${books.length}\n'
-          'Bookmarks for Test Book: ${bookmarks.length}';
+          'Bookmarks for Test Book: ${bookmarks.length}',
+        );
       }
     } catch (e) {
       if (mounted) {
-        ref.read(statusProvider.notifier).state = 'Database Test Error: $e';
+        ref.read(statusProvider.notifier).setStatus('Database Test Error: $e');
       }
     }
   }

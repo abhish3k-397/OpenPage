@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../reader/css_injector.dart';
-import '../reader/reader_provider.dart';
+import '../../features/reader/reader_provider.dart';
 
 class SettingsNotifier extends Notifier<ReaderSettings> {
   @override

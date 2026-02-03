@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/settings/settings_provider.dart';
 import '../../core/reader/css_injector.dart';
+import '../reader/reader_provider.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
