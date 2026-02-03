@@ -1,11 +1,18 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import '../../core/reader/webview_bridge.dart';
 import '../../core/reader/css_injector.dart';
+import '../../core/reader/reader_controller.dart';
+import 'dart:developer' as developer;
 
 class ReaderScreen extends StatefulWidget {
   final String htmlPath;
+  final String bookId;
 
   const ReaderScreen({
     super.key,
     required this.htmlPath,
+    this.bookId = 'mock_book',
   });
 
   @override
@@ -141,13 +148,16 @@ class _ReaderScreenState extends State<ReaderScreen> {
             initialSettings: WebviewBridge.defaultSettings,
             onWebViewCreated: (controller) {
               _webViewController = controller;
+              _setupJavaScriptHandlers(controller);
             },
             onLoadStart: (controller, url) {
               setState(() => _isLoading = true);
             },
-            onLoadStop: (controller, url) {
+            onLoadStop: (controller, url) async {
               setState(() => _isLoading = false);
               _applyStyles();
+              await _restoreScrollPosition(controller);
+              await _injectScrollMonitor(controller);
             },
             onReceivedError: (controller, request, error) {
               developer.log('WebView Error: ${error.description}', name: 'ReaderScreen');
@@ -160,5 +170,47 @@ class _ReaderScreenState extends State<ReaderScreen> {
         ],
       ),
     );
+  }
+
+  void _setupJavaScriptHandlers(InAppWebViewController controller) {
+    controller.addJavaScriptHandler(
+      handlerName: 'onScroll',
+      callback: (args) {
+        final double progress = args[0].toDouble();
+        ReaderController.savePosition(
+          bookId: widget.bookId,
+          chapterPath: widget.htmlPath,
+          progress: progress,
+        );
+      },
+    );
+  }
+
+  Future<void> _injectScrollMonitor(InAppWebViewController controller) async {
+    const js = '''
+      window.onscroll = function() {
+        var scrollPos = window.scrollY;
+        var totalHeight = document.documentElement.scrollHeight - window.innerHeight;
+        var progress = totalHeight > 0 ? scrollPos / totalHeight : 0;
+        window.flutter_inappwebview.callHandler('onScroll', progress);
+      };
+    ''';
+    await controller.evaluateJavascript(source: js);
+  }
+
+  Future<void> _restoreScrollPosition(InAppWebViewController controller) async {
+    final double progress = await ReaderController.getPosition(
+      bookId: widget.bookId,
+      chapterPath: widget.htmlPath,
+    );
+    if (progress > 0) {
+      final js = '''
+        setTimeout(function() {
+          var totalHeight = document.documentElement.scrollHeight - window.innerHeight;
+          window.scrollTo(0, totalHeight * $progress);
+        }, 100);
+      ''';
+      await controller.evaluateJavascript(source: js);
+    }
   }
 }

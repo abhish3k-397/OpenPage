@@ -1,3 +1,6 @@
+import 'package:flutter/material.dart';
+import '../features/library/library_screen.dart';
+import '../features/settings/dependency_check_screen.dart';
 import '../features/reader/reader_screen.dart';
 
 class AppRouter {
