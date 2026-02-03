@@ -4,6 +4,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
+import '../../core/storage/book_dao.dart';
+import '../../core/storage/bookmark_dao.dart';
+import 'dart:io';
 
 final statusProvider = StateProvider<String>((ref) => 'Initializing...');
 
@@ -85,6 +88,46 @@ class _DependencyCheckScreenState extends ConsumerState<DependencyCheckScreen> {
     }
   }
 
+  Future<void> _testDatabase() async {
+    final bookDao = BookDao();
+    final bookmarkDao = BookmarkDao();
+    final uuid = const Uuid();
+
+    try {
+      final bookId = uuid.v4();
+      final book = BookRecord(
+        id: bookId,
+        title: 'Test Book',
+        author: 'Antigravity',
+        rootPath: '/mock/path',
+      );
+
+      await bookDao.insertBook(book);
+      final books = await bookDao.getBooks();
+      
+      final bookmark = BookmarkRecord(
+        id: uuid.v4(),
+        bookId: bookId,
+        chapter: 'Chapter 1',
+        offset: 0.5,
+        createdAt: DateTime.now().toIso8601String(),
+      );
+      await bookmarkDao.insertBookmark(bookmark);
+      final bookmarks = await bookmarkDao.getBookmarksForBook(bookId);
+
+      if (mounted) {
+        ref.read(statusProvider.notifier).state = 
+          'Database Test Success!\n'
+          'Books in DB: ${books.length}\n'
+          'Bookmarks for Test Book: ${bookmarks.length}';
+      }
+    } catch (e) {
+      if (mounted) {
+        ref.read(statusProvider.notifier).state = 'Database Test Error: $e';
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final status = ref.watch(statusProvider);
@@ -105,6 +148,11 @@ class _DependencyCheckScreenState extends ConsumerState<DependencyCheckScreen> {
               ElevatedButton(
                 onPressed: _openMockReader,
                 child: const Text('Open Mock Reader'),
+              ),
+              const SizedBox(height: 10),
+              ElevatedButton(
+                onPressed: _testDatabase,
+                child: const Text('Test Database DAOs'),
               ),
             ],
           ),
