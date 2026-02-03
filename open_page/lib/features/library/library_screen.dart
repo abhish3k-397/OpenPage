@@ -18,6 +18,11 @@ class LibraryScreen extends ConsumerWidget {
         title: const Text('OpenPage Library'),
         actions: [
           IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: () => Navigator.pushNamed(context, '/settings'),
+            tooltip: 'Settings',
+          ),
+          IconButton(
             icon: const Icon(Icons.bug_report),
             onPressed: () => Navigator.pushNamed(context, '/check'),
             tooltip: 'Dependency Check',

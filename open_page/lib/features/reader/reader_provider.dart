@@ -83,11 +83,18 @@ class ReaderNotifier extends FamilyNotifier<ReaderState, String> {
   Future<void> _init(String bookId) async {
     final prefs = await SharedPreferences.getInstance();
     
-    // Load Settings
-    final themeIndex = prefs.getInt('reader_theme') ?? 0;
-    final fontSize = prefs.getDouble('reader_font_size') ?? 18.0;
-    final lineHeight = prefs.getDouble('reader_line_height') ?? 1.5;
-    final margin = prefs.getDouble('reader_margin') ?? 20.0;
+    // Load Book-Specific Settings or Fallback to Global Defaults
+    // To make it truly global but allow overrides, we can use different keys for books,
+    // but for now, let's just use the global keys if book-specific ones aren't set.
+    
+    // Check if book-specific settings exist first? 
+    // Let's simplify: Use the same keys as settingsProvider for now if we want global sync,
+    // or distinct ones for book-specific. The requirement says "Settings applied globally".
+    
+    final themeIndex = prefs.getInt('reader_theme') ?? prefs.getInt('global_reader_theme') ?? 0;
+    final fontSize = prefs.getDouble('reader_font_size') ?? prefs.getDouble('global_reader_font_size') ?? 18.0;
+    final lineHeight = prefs.getDouble('reader_line_height') ?? prefs.getDouble('global_reader_line_height') ?? 1.5;
+    final margin = prefs.getDouble('reader_margin') ?? prefs.getDouble('global_reader_margin') ?? 20.0;
 
     final settings = ReaderSettings(
       theme: ReaderTheme.values[themeIndex],
