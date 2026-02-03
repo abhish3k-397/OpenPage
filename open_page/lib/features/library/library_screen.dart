@@ -22,11 +22,6 @@ class LibraryScreen extends ConsumerWidget {
             onPressed: () => Navigator.pushNamed(context, '/settings'),
             tooltip: 'Settings',
           ),
-          IconButton(
-            icon: const Icon(Icons.bug_report),
-            onPressed: () => Navigator.pushNamed(context, '/check'),
-            tooltip: 'Dependency Check',
-          ),
         ],
       ),
       body: libraryState.when(

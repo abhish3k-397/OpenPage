@@ -173,6 +173,11 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                   },
                   onReceivedError: (controller, request, error) {
                     developer.log('WebView Error: ${error.description}', name: 'ReaderScreen');
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Error loading chapter: ${error.description}')),
+                      );
+                    }
                   },
                 ),
               ],

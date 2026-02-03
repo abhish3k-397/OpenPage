@@ -48,6 +48,7 @@ class LibraryNotifier extends AsyncNotifier<List<BookRecord>> {
       // 4. Refresh List
       state = AsyncValue.data(await _bookDao.getBooks());
     } catch (e, stack) {
+      developer.log('Import Error', error: e, stackTrace: stack, name: 'LibraryNotifier');
       state = AsyncValue.error(e, stack);
     }
   }
