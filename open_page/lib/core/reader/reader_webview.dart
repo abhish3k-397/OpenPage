@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_html/flutter_html.dart';
 import 'dart:developer' as developer;
+import 'css_injector.dart';
 
 typedef ReaderJavascriptEvaluator = Future<void> Function(String source);
 
@@ -17,6 +18,10 @@ class ReaderWebView extends StatefulWidget {
   final ValueChanged<double> onScrollProgress;
   final ValueChanged<ReaderWebController> onControllerReady;
   final VoidCallback onPageReady;
+  final ReaderTheme theme;
+  final double fontSize;
+  final double lineHeight;
+  final double margin;
 
   const ReaderWebView({
     super.key,
@@ -24,6 +29,10 @@ class ReaderWebView extends StatefulWidget {
     required this.onScrollProgress,
     required this.onControllerReady,
     required this.onPageReady,
+    required this.theme,
+    required this.fontSize,
+    required this.lineHeight,
+    required this.margin,
   });
 
   @override
@@ -38,6 +47,10 @@ class _ReaderWebViewState extends State<ReaderWebView> {
         filePath: widget.filePath,
         onScrollProgress: widget.onScrollProgress,
         onControllerReady: widget.onControllerReady,
+        theme: widget.theme,
+        fontSize: widget.fontSize,
+        lineHeight: widget.lineHeight,
+        margin: widget.margin,
       );
     }
 
@@ -47,6 +60,10 @@ class _ReaderWebViewState extends State<ReaderWebView> {
       onScrollProgress: widget.onScrollProgress,
       onControllerReady: widget.onControllerReady,
       onPageReady: widget.onPageReady,
+      theme: widget.theme,
+      fontSize: widget.fontSize,
+      lineHeight: widget.lineHeight,
+      margin: widget.margin,
     );
   }
 }
@@ -56,12 +73,20 @@ class _InAppReaderWebView extends StatefulWidget {
   final ValueChanged<double> onScrollProgress;
   final ValueChanged<ReaderWebController> onControllerReady;
   final VoidCallback onPageReady;
+  final ReaderTheme theme;
+  final double fontSize;
+  final double lineHeight;
+  final double margin;
 
   const _InAppReaderWebView({
     required this.filePath,
     required this.onScrollProgress,
     required this.onControllerReady,
     required this.onPageReady,
+    required this.theme,
+    required this.fontSize,
+    required this.lineHeight,
+    required this.margin,
   });
 
   @override
@@ -137,10 +162,18 @@ class _LinuxReaderView extends StatefulWidget {
   final String filePath;
   final ValueChanged<double> onScrollProgress;
   final ValueChanged<ReaderWebController> onControllerReady;
+  final ReaderTheme theme;
+  final double fontSize;
+  final double lineHeight;
+  final double margin;
   const _LinuxReaderView({
     required this.filePath,
     required this.onScrollProgress,
     required this.onControllerReady,
+    required this.theme,
+    required this.fontSize,
+    required this.lineHeight,
+    required this.margin,
   });
 
   @override
@@ -196,25 +229,51 @@ class _LinuxReaderViewState extends State<_LinuxReaderView> {
 
         final html = snapshot.data!;
 
+        Color background;
+        Color textColor;
+        switch (widget.theme) {
+          case ReaderTheme.dark:
+            background = const Color(0xFF121212);
+            textColor = const Color(0xFFE0E0E0);
+            break;
+          case ReaderTheme.sepia:
+            background = const Color(0xFFF4ECD8);
+            textColor = const Color(0xFF5B4636);
+            break;
+          case ReaderTheme.light:
+          default:
+            background = const Color(0xFFFFFFFF);
+            textColor = const Color(0xFF121212);
+            break;
+        }
+
         return NotificationListener<ScrollNotification>(
           onNotification: (notification) {
             final metrics = notification.metrics;
             if (metrics.maxScrollExtent > 0) {
-              final progress = (metrics.pixels / metrics.maxScrollExtent).clamp(0.0, 1.0);
+              final progress =
+                  (metrics.pixels / metrics.maxScrollExtent).clamp(0.0, 1.0);
               widget.onScrollProgress(progress);
             }
             return false;
           },
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-            child: Html(
-              data: html,
-              style: {
-                'body': Style(
-                  fontSize: FontSize(18),
-                  lineHeight: LineHeight.number(1.5),
-                ),
-              },
+          child: Container(
+            color: background,
+            child: SingleChildScrollView(
+              padding: EdgeInsets.symmetric(
+                horizontal: widget.margin,
+                vertical: 20,
+              ),
+              child: Html(
+                data: html,
+                style: {
+                  'body': Style(
+                    color: textColor,
+                    fontSize: FontSize(widget.fontSize),
+                    lineHeight: LineHeight.number(widget.lineHeight),
+                  ),
+                },
+              ),
             ),
           ),
         );

@@ -1,10 +1,9 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'library_provider.dart';
 import '../../core/storage/book_dao.dart';
-import '../../core/epub/epub_parser.dart';
-import '../../core/epub/spine_resolver.dart';
 
 class LibraryScreen extends ConsumerWidget {
   const LibraryScreen({super.key});
@@ -14,83 +13,137 @@ class LibraryScreen extends ConsumerWidget {
     final libraryState = ref.watch(libraryProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('OpenPage Library'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.settings),
-            onPressed: () => Navigator.pushNamed(context, '/settings'),
-            tooltip: 'Settings',
+      body: CustomScrollView(
+        slivers: [
+          SliverAppBar.large(
+            title: Text(
+              'Your Library',
+              style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
+            ),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.settings_outlined),
+                onPressed: () => Navigator.pushNamed(context, '/settings'),
+              ),
+            ],
+          ),
+          libraryState.when(
+            data: (books) => books.isEmpty
+                ? const SliverFillRemaining(child: _EmptyLibraryState())
+                : SliverPadding(
+                    padding: const EdgeInsets.all(20),
+                    sliver: _BookGrid(books: books),
+                  ),
+            loading: () => const SliverFillRemaining(
+              child: Center(child: CircularProgressIndicator()),
+            ),
+            error: (err, stack) => SliverFillRemaining(
+              child: Center(child: Text('Error: $err')),
+            ),
           ),
         ],
-      ),
-      body: libraryState.when(
-        data: (books) => books.isEmpty
-            ? const Center(child: Text('No books yet. Import one!'))
-            : _BookGrid(books: books),
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (err, stack) => Center(child: Text('Error: $err')),
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => ref.read(libraryProvider.notifier).importBook(),
         label: const Text('Add Book'),
-        icon: const Icon(Icons.add),
+        icon: const Icon(Icons.add_rounded),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
+    );
+  }
+}
+
+class _EmptyLibraryState extends StatelessWidget {
+  const _EmptyLibraryState();
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(
+          Icons.auto_stories_rounded,
+          size: 100,
+          color: colorScheme.primary.withOpacity(0.2),
+        ),
+        const SizedBox(height: 24),
+        Text(
+          'Your library is empty',
+          style: GoogleFonts.outfit(
+            fontSize: 22,
+            fontWeight: FontWeight.w600,
+            color: colorScheme.onSurface,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Import an EPUB to start reading',
+          style: GoogleFonts.outfit(
+            fontSize: 16,
+            color: colorScheme.onSurfaceVariant,
+          ),
+        ),
+      ],
     );
   }
 }
 
 class _BookGrid extends StatelessWidget {
   final List<BookRecord> books;
-
   const _BookGrid({required this.books});
 
   @override
   Widget build(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
-    final crossAxisCount = (width / 180).floor().clamp(2, 6);
+    final crossAxisCount = (width / 200).floor().clamp(2, 6);
 
-    return GridView.builder(
-      padding: const EdgeInsets.all(16),
+    return SliverGrid(
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: crossAxisCount,
-        childAspectRatio: 0.7,
-        crossAxisSpacing: 16,
-        mainAxisSpacing: 16,
+        childAspectRatio: 0.65,
+        crossAxisSpacing: 20,
+        mainAxisSpacing: 24,
       ),
-      itemCount: books.length,
-      itemBuilder: (context, index) {
-        final book = books[index];
-        return _BookCard(book: book);
-      },
+      delegate: SliverChildBuilderDelegate(
+        (context, index) => _BookCard(book: books[index]),
+        childCount: books.length,
+      ),
     );
   }
 }
 
 class _BookCard extends StatelessWidget {
   final BookRecord book;
-
   const _BookCard({required this.book});
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () {
-        Navigator.pushNamed(
-          context,
-          '/reader',
-          arguments: {
-            'bookId': book.id,
-          },
-        );
-      },
+    final colorScheme = Theme.of(context).colorScheme;
+    
+    return InkWell(
+      onTap: () => Navigator.pushNamed(
+        context,
+        '/reader',
+        arguments: {'bookId': book.id},
+      ),
+      borderRadius: BorderRadius.circular(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(
-            child: Card(
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
               clipBehavior: Clip.antiAlias,
-              elevation: 4,
               child: book.coverPath != null && File(book.coverPath!).existsSync()
                   ? Image.file(
                       File(book.coverPath!),
@@ -98,24 +151,39 @@ class _BookCard extends StatelessWidget {
                       width: double.infinity,
                     )
                   : Container(
-                      color: Colors.grey[300],
-                      child: const Icon(Icons.book, size: 50, color: Colors.grey),
+                      color: colorScheme.secondaryContainer,
+                      child: Center(
+                        child: Icon(
+                          Icons.book_rounded,
+                          size: 48,
+                          color: colorScheme.onSecondaryContainer,
+                        ),
+                      ),
                     ),
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
           Text(
             book.title,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontWeight: FontWeight.bold),
+            style: GoogleFonts.outfit(
+              fontWeight: FontWeight.w700,
+              fontSize: 15,
+              height: 1.2,
+            ),
           ),
+          const SizedBox(height: 4),
           if (book.author != null)
             Text(
               book.author!,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(color: Colors.grey[600], fontSize: 12),
+              style: GoogleFonts.outfit(
+                color: colorScheme.onSurfaceVariant,
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+              ),
             ),
         ],
       ),
