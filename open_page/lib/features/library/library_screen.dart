@@ -75,22 +75,14 @@ class _BookCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () async {
-        // Prepare navigation to reader
-        // For now, loading the first chapter
-        final epubBook = await EpubParser.parse(book.rootPath);
-        final paths = SpineResolver.resolveAllPaths(epubBook);
-        
-        if (paths.isNotEmpty && context.mounted) {
-          Navigator.pushNamed(
-            context,
-            '/reader',
-            arguments: {
-              'path': paths.first,
-              'bookId': book.id,
-            },
-          );
-        }
+      onTap: () {
+        Navigator.pushNamed(
+          context,
+          '/reader',
+          arguments: {
+            'bookId': book.id,
+          },
+        );
       },
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

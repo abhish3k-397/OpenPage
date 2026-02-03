@@ -12,10 +12,10 @@ class AppRouter {
   static Route<dynamic>? onGenerateRoute(RouteSettings settings) {
     if (settings.name == '/reader') {
       final args = settings.arguments as Map<String, dynamic>?;
-      final path = args?['path'] as String?;
-      if (path != null) {
+      final bookId = args?['bookId'] as String?;
+      if (bookId != null) {
         return MaterialPageRoute(
-          builder: (context) => ReaderScreen(htmlPath: path),
+          builder: (context) => ReaderScreen(bookId: bookId),
         );
       }
     }

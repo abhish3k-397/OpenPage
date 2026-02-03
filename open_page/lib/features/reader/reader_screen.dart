@@ -1,52 +1,49 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/reader/webview_bridge.dart';
 import '../../core/reader/css_injector.dart';
 import '../../core/reader/reader_controller.dart';
+import 'reader_provider.dart';
 import 'dart:developer' as developer;
 
-class ReaderScreen extends StatefulWidget {
-  final String htmlPath;
+class ReaderScreen extends ConsumerStatefulWidget {
   final String bookId;
 
   const ReaderScreen({
     super.key,
-    required this.htmlPath,
-    this.bookId = 'mock_book',
+    required this.bookId,
+    // Note: htmlPath is no longer needed as a primary parameter 
+    // because the provider manages the current chapter path.
   });
 
   @override
-  State<ReaderScreen> createState() => _ReaderScreenState();
+  ConsumerState<ReaderScreen> createState() => _ReaderScreenState();
 }
 
-class _ReaderScreenState extends State<ReaderScreen> {
+class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   InAppWebViewController? _webViewController;
-  bool _isLoading = true;
+  double _scrollProgress = 0.0;
 
-  // Reader Settings State
-  ReaderTheme _theme = ReaderTheme.light;
-  double _fontSize = 18.0;
-  double _lineHeight = 1.5;
-  double _margin = 20.0;
-
-  void _applyStyles() {
+  void _applyStyles(ReaderSettings settings) {
     if (_webViewController != null) {
       CssInjector.inject(
         _webViewController!,
-        theme: _theme,
-        fontSize: _fontSize,
-        lineHeight: _lineHeight,
-        horizontalMargin: _margin,
+        theme: settings.theme,
+        fontSize: settings.fontSize,
+        lineHeight: settings.lineHeight,
+        horizontalMargin: settings.margin,
       );
     }
   }
 
-  void _showSettings() {
+  void _showSettings(ReaderState state) {
     showModalBottomSheet(
       context: context,
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setModalState) {
+            final settings = state.settings;
             return Container(
               padding: const EdgeInsets.all(20),
               child: Column(
@@ -57,26 +54,29 @@ class _ReaderScreenState extends State<ReaderScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
-                      _themeButton(ReaderTheme.light, 'Light', Colors.white, Colors.black, setModalState),
-                      _themeButton(ReaderTheme.sepia, 'Sepia', const Color(0xFFF4ECD8), const Color(0xFF5B4636), setModalState),
-                      _themeButton(ReaderTheme.dark, 'Dark', const Color(0xFF121212), Colors.white, setModalState),
+                      _themeButton(ReaderTheme.light, 'Light', Colors.white, Colors.black, settings, setModalState),
+                      _themeButton(ReaderTheme.sepia, 'Sepia', const Color(0xFFF4ECD8), const Color(0xFF5B4636), settings, setModalState),
+                      _themeButton(ReaderTheme.dark, 'Dark', const Color(0xFF121212), Colors.white, settings, setModalState),
                     ],
                   ),
                   const SizedBox(height: 20),
-                  _sliderSetting('Font Size', _fontSize, 12, 32, (val) {
-                    setState(() => _fontSize = val);
+                  _sliderSetting('Font Size', settings.fontSize, 12, 32, (val) {
+                    final newSettings = settings.copyWith(fontSize: val);
+                    ref.read(readerProvider(widget.bookId).notifier).updateSettings(newSettings);
+                    _applyStyles(newSettings);
                     setModalState(() {});
-                    _applyStyles();
                   }),
-                  _sliderSetting('Line Height', _lineHeight, 1.0, 2.5, (val) {
-                    setState(() => _lineHeight = val);
+                  _sliderSetting('Line Height', settings.lineHeight, 1.0, 2.5, (val) {
+                    final newSettings = settings.copyWith(lineHeight: val);
+                    ref.read(readerProvider(widget.bookId).notifier).updateSettings(newSettings);
+                    _applyStyles(newSettings);
                     setModalState(() {});
-                    _applyStyles();
                   }),
-                  _sliderSetting('Margins', _margin, 0, 50, (val) {
-                    setState(() => _margin = val);
+                  _sliderSetting('Margins', settings.margin, 0, 50, (val) {
+                    final newSettings = settings.copyWith(margin: val);
+                    ref.read(readerProvider(widget.bookId).notifier).updateSettings(newSettings);
+                    _applyStyles(newSettings);
                     setModalState(() {});
-                    _applyStyles();
                   }),
                 ],
               ),
@@ -87,8 +87,8 @@ class _ReaderScreenState extends State<ReaderScreen> {
     );
   }
 
-  Widget _themeButton(ReaderTheme theme, String label, Color bg, Color text, StateSetter setModalState) {
-    bool isSelected = _theme == theme;
+  Widget _themeButton(ReaderTheme theme, String label, Color bg, Color text, ReaderSettings current, StateSetter setModalState) {
+    bool isSelected = current.theme == theme;
     return ChoiceChip(
       label: Text(label, style: TextStyle(color: text)),
       selected: isSelected,
@@ -100,9 +100,10 @@ class _ReaderScreenState extends State<ReaderScreen> {
       ),
       onSelected: (selected) {
         if (selected) {
-          setState(() => _theme = theme);
+          final newSettings = current.copyWith(theme: theme);
+          ref.read(readerProvider(widget.bookId).notifier).updateSettings(newSettings);
+          _applyStyles(newSettings);
           setModalState(() {});
-          _applyStyles();
         }
       },
     );
@@ -127,13 +128,23 @@ class _ReaderScreenState extends State<ReaderScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final state = ref.watch(readerProvider(widget.bookId));
+
+    if (state.isLoading || state.spinePaths.isEmpty) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    final currentPath = state.spinePaths[state.currentChapterIndex];
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('EPUB Reader'),
+        title: Text('Chapter ${state.currentChapterIndex + 1}'),
         actions: [
           IconButton(
             icon: const Icon(Icons.settings),
-            onPressed: _showSettings,
+            onPressed: () => _showSettings(state),
           ),
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -141,45 +152,81 @@ class _ReaderScreenState extends State<ReaderScreen> {
           ),
         ],
       ),
-      body: Stack(
+      body: Column(
         children: [
-          InAppWebView(
-            initialUrlRequest: URLRequest(url: WebUri('file://${widget.htmlPath}')),
-            initialSettings: WebviewBridge.defaultSettings,
-            onWebViewCreated: (controller) {
-              _webViewController = controller;
-              _setupJavaScriptHandlers(controller);
-            },
-            onLoadStart: (controller, url) {
-              setState(() => _isLoading = true);
-            },
-            onLoadStop: (controller, url) async {
-              setState(() => _isLoading = false);
-              _applyStyles();
-              await _restoreScrollPosition(controller);
-              await _injectScrollMonitor(controller);
-            },
-            onReceivedError: (controller, request, error) {
-              developer.log('WebView Error: ${error.description}', name: 'ReaderScreen');
-            },
-          ),
-          if (_isLoading)
-            const Center(
-              child: CircularProgressIndicator(),
+          LinearProgressIndicator(value: _scrollProgress),
+          Expanded(
+            child: Stack(
+              children: [
+                InAppWebView(
+                  key: ValueKey(currentPath), // Force rebuild on chapter change
+                  initialUrlRequest: URLRequest(url: WebUri('file://$currentPath')),
+                  initialSettings: WebviewBridge.defaultSettings,
+                  onWebViewCreated: (controller) {
+                    _webViewController = controller;
+                    _setupJavaScriptHandlers(controller, currentPath);
+                  },
+                  onLoadStop: (controller, url) async {
+                    _applyStyles(state.settings);
+                    await _restoreScrollPosition(controller, currentPath);
+                    await _injectScrollMonitor(controller);
+                  },
+                  onReceivedError: (controller, request, error) {
+                    developer.log('WebView Error: ${error.description}', name: 'ReaderScreen');
+                  },
+                ),
+              ],
             ),
+          ),
+          _buildNavigation(state),
         ],
       ),
     );
   }
 
-  void _setupJavaScriptHandlers(InAppWebViewController controller) {
+  Widget _buildNavigation(ReaderState state) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      color: Theme.of(context).cardColor,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: state.currentChapterIndex > 0
+                ? () {
+                    ref.read(readerProvider(widget.bookId).notifier).previousChapter();
+                    setState(() => _scrollProgress = 0.0);
+                  }
+                : null,
+          ),
+          Text(
+            '${state.currentChapterIndex + 1} / ${state.spinePaths.length}',
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+          IconButton(
+            icon: const Icon(Icons.arrow_forward),
+            onPressed: state.currentChapterIndex < state.spinePaths.length - 1
+                ? () {
+                    ref.read(readerProvider(widget.bookId).notifier).nextChapter();
+                    setState(() => _scrollProgress = 0.0);
+                  }
+                : null,
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _setupJavaScriptHandlers(InAppWebViewController controller, String path) {
     controller.addJavaScriptHandler(
       handlerName: 'onScroll',
       callback: (args) {
         final double progress = args[0].toDouble();
+        setState(() => _scrollProgress = progress);
         ReaderController.savePosition(
           bookId: widget.bookId,
-          chapterPath: widget.htmlPath,
+          chapterPath: path,
           progress: progress,
         );
       },
@@ -198,17 +245,17 @@ class _ReaderScreenState extends State<ReaderScreen> {
     await controller.evaluateJavascript(source: js);
   }
 
-  Future<void> _restoreScrollPosition(InAppWebViewController controller) async {
+  Future<void> _restoreScrollPosition(InAppWebViewController controller, String path) async {
     final double progress = await ReaderController.getPosition(
       bookId: widget.bookId,
-      chapterPath: widget.htmlPath,
+      chapterPath: path,
     );
     if (progress > 0) {
       final js = '''
         setTimeout(function() {
           var totalHeight = document.documentElement.scrollHeight - window.innerHeight;
           window.scrollTo(0, totalHeight * $progress);
-        }, 100);
+        }, 150);
       ''';
       await controller.evaluateJavascript(source: js);
     }
